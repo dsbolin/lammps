@@ -13,21 +13,21 @@
 
 #ifdef FIX_CLASS
 
-FixStyle(move,FixMove)
+FixStyle(move,FixMoveDemsi)
 
 #else
 
-#ifndef LMP_FIX_MOVE_H
-#define LMP_FIX_MOVE_H
+#ifndef LMP_FIX_MOVE_DEMSI_H
+#define LMP_FIX_MOVE_DEMSI_H
 
 #include "fix.h"
 
 namespace LAMMPS_NS {
 
-class FixMove : public Fix {
+class FixMoveDemsi : public Fix {
  public:
-  FixMove(class LAMMPS *, int, char **);
-  ~FixMove();
+  FixMoveDemsi(class LAMMPS *, int, char **);
+  ~FixMoveDemsi();
   int setmask();
   void init();
   void initial_integrate(int);
