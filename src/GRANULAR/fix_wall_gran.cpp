@@ -184,6 +184,17 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
         normal_coeffs[2] = poiss;
         normal_coeffs[3] = utils::numeric(FLERR,arg[iarg+4],false,lmp); //cohesion
         iarg += 5;
+      } else if (strcmp(arg[iarg], "luding") == 0){
+        if (iarg + 4 >= narg)
+          error->all(FLERR,"Illegal wall/gran command, "
+              "not enough parameters provided for 'luding' option");
+        normal_model = LUDING;
+        normal_coeffs[0] = utils::numeric(FLERR,arg[iarg+1],false,lmp); //k1
+        normal_coeffs[1] = utils::numeric(FLERR,arg[iarg+2],false,lmp); //damping
+        normal_coeffs[2] = utils::numeric(FLERR,arg[iarg+3],false,lmp); //k2_hat
+        normal_coeffs[3] = utils::numeric(FLERR,arg[iarg+4],false,lmp); //kc
+        normal_coeffs[4] = utils::numeric(FLERR,arg[iarg+5],false,lmp); //phi_f
+        iarg += 5;
       } else if (strcmp(arg[iarg], "damping") == 0) {
         if (iarg+1 >= narg)
           error->all(FLERR, "Illegal wall/gran command, "
@@ -520,6 +531,11 @@ void FixWallGran::init()
         if (roll_history) twist_history_index = 3;
         else twist_history_index = 0;
       }
+    }
+    if (normal_model == LUDING){
+      tangential_history_index += 1;
+      roll_history_index += 1;
+      twist_history_index += 1;
     }
     if (normal_model == JKR) {
       tangential_history_index += 1;
@@ -1128,6 +1144,11 @@ void FixWallGran::granular(double rsq, double dx, double dy, double dz,
   double t0, t1, t2, t3, t4, t5, t6;
   double sqrt1, sqrt2, sqrt3;
 
+  // for Luding
+  double dmax, dmax_star, d0;
+  double k1, k2, k2_hat, kc, phi_f;
+  double k1delta, kcdelta, k2_dd0;
+
   // rolling
   double k_roll, damp_roll;
   double torroll1, torroll2, torroll3;
@@ -1189,7 +1210,7 @@ void FixWallGran::granular(double rsq, double dx, double dy, double dz,
     a2 = a*a;
     knfac = normal_coeffs[0]*a;
     Fne = knfac*a2/Reff - TWOPI*a2*sqrt(4*coh*E/(MY_PI*a));
-  } else {
+  } else if (normal_model != LUDING){
     knfac = E; //Hooke
     a = sqrt(dR);
     Fne = knfac*delta;
@@ -1199,6 +1220,36 @@ void FixWallGran::granular(double rsq, double dx, double dy, double dz,
     }
     if (normal_model == DMT)
       Fne -= 4*MY_PI*normal_coeffs[3]*Reff;
+  } else if (normal_model == LUDING){
+    k1 = normal_coeffs[0];
+    k2_hat = normal_coeffs[2];
+    kc = normal_coeffs[3];
+    phi_f = normal_coeffs[4];
+    dmax_star = k2_hat*(k2_hat-k1)*phi_f*2*Reff;
+    dmax = history[0];
+    if (delta > dmax){
+      dmax = delta;
+      history[0] = delta;
+    }
+    if (dmax > dmax_star){
+      k2 = k2_hat;
+    }
+    else{
+      k2 = k1+(k2_hat-k1)*dmax/dmax_star;
+    }
+    d0 = (1-k1/k2)*dmax;
+    k1delta = k1*delta;
+    kcdelta = -kc*delta;
+    k2_dd0 = k2*(delta-d0);
+    if (k2_dd0 >= k1delta){
+      Fne = k1delta;
+    }
+    else if ((k1delta > k2_dd0) && (k2_dd0 > kcdelta)){
+      Fne = k2_dd0;
+    }
+    else if (kcdelta >= k2_dd0){
+      Fne = kcdelta;
+    }
   }
 
   if (damping_model == VELOCITY) {

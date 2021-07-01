@@ -74,7 +74,8 @@ class PairGranular : public Pair {
   int **tangential_model, **roll_model, **twist_model;
   int **limit_damping;
 
-  // history flags
+  // history flags, size
+  int normal_history_size;
   int normal_history, tangential_history, roll_history, twist_history;
 
   // indices of history entries

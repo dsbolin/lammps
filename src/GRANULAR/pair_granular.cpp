@@ -53,7 +53,7 @@ using namespace MathSpecial;
 
 #define EPSILON 1e-10
 
-enum {HOOKE, HERTZ, HERTZ_MATERIAL, DMT, JKR};
+enum {HOOKE, HERTZ, HERTZ_MATERIAL, DMT, JKR, LUDING};
 enum {VELOCITY, MASS_VELOCITY, VISCOELASTIC, TSUJI};
 enum {TANGENTIAL_NOHISTORY, TANGENTIAL_HISTORY,
       TANGENTIAL_MINDLIN, TANGENTIAL_MINDLIN_RESCALE,
@@ -170,6 +170,11 @@ void PairGranular::compute(int eflag, int vflag)
   double R2, coh, F_pulloff, delta_pulloff, dist_pulloff, a, a2, E;
   double t0, t1, t2, t3, t4, t5, t6;
   double sqrt1, sqrt2, sqrt3;
+
+  // for Luding
+  double dmax, dmax_star, d0;
+  double k1, k2, k2_hat, kc, phi_f;
+  double k1delta, kcdelta, k2_dd0;
 
   // rolling
   double k_roll, damp_roll;
@@ -288,6 +293,11 @@ void PairGranular::compute(int eflag, int vflag)
           for (int k = 0; k < size_history; k++) history[k] = 0.0;
         }
       } else {
+        // if any history is needed
+        if (use_history) {
+          touch[jj] = 1;
+          history = &allhistory[size_history*jj];
+        }
         r = sqrt(rsq);
         rinv = 1.0/r;
 
@@ -346,7 +356,7 @@ void PairGranular::compute(int eflag, int vflag)
           a2 = a*a;
           knfac = normal_coeffs[itype][jtype][0]*a;
           Fne = knfac*a2/Reff - MY_2PI*a2*sqrt(4*coh*E/(MY_PI*a));
-        } else {
+        } else if (normal_model[itype][jtype] != LUDING){
           knfac = E; // Hooke
           Fne = knfac*delta;
           a = sqrt(dR);
@@ -356,6 +366,37 @@ void PairGranular::compute(int eflag, int vflag)
           }
           if (normal_model[itype][jtype] == DMT)
             Fne -= 4*MY_PI*normal_coeffs[itype][jtype][3]*Reff;
+        }
+        else if (normal_model[itype][jtype] == LUDING){
+          k1 = normal_coeffs[itype][jtype][0];
+          k2_hat = normal_coeffs[itype][jtype][2];
+          kc = normal_coeffs[itype][jtype][3];
+          phi_f = normal_coeffs[itype][jtype][4];
+          dmax_star = k2_hat*(k2_hat-k1)*phi_f*2*Reff;
+          dmax = history[0];
+          if (delta > dmax){
+            dmax = delta;
+            if (historyupdate) history[0] = delta;
+          }
+          if (dmax > dmax_star){
+            k2 = k2_hat;
+          }
+          else{
+            k2 = k1+(k2_hat-k1)*dmax/dmax_star;
+          }
+          d0 = (1-k1/k2)*dmax;
+          k1delta = k1*delta;
+          kcdelta = -kc*delta;
+          k2_dd0 = k2*(delta-d0);
+          if (k2_dd0 >= k1delta){
+            Fne = k1delta;
+          }
+          else if ((k1delta > k2_dd0) && (k2_dd0 > kcdelta)){
+            Fne = k2_dd0;
+          }
+          else if (kcdelta >= k2_dd0){
+            Fne = kcdelta;
+          }
         }
 
         // NOTE: consider restricting Hooke to only have
@@ -404,12 +445,6 @@ void PairGranular::compute(int eflag, int vflag)
         vrel = vtr1*vtr1 + vtr2*vtr2 + vtr3*vtr3;
         vrel = sqrt(vrel);
 
-        // if any history is needed
-        if (use_history) {
-          touch[jj] = 1;
-          history = &allhistory[size_history*jj];
-        }
-
         if (normal_model[itype][jtype] == JKR) {
           F_pulloff = 3*MY_PI*coh*Reff;
           Fncrit = fabs(Fne + 2*F_pulloff);
@@ -429,6 +464,9 @@ void PairGranular::compute(int eflag, int vflag)
           damp_normal_prefactor;
 
         if (tangential_history) {
+          int thist0 = tangential_history_index;
+          int thist1 = thist0 + 1;
+          int thist2 = thist0 + 2;
           if (tangential_model[itype][jtype] == TANGENTIAL_MINDLIN ||
               tangential_model[itype][jtype] == TANGENTIAL_MINDLIN_FORCE) {
             k_tangential *= a;
@@ -440,15 +478,15 @@ void PairGranular::compute(int eflag, int vflag)
             // on unloading, rescale the shear displacements/force
             if (a < history[3]) {
               double factor = a/history[3];
-              history[0] *= factor;
-              history[1] *= factor;
-              history[2] *= factor;
+              history[thist0] *= factor;
+              history[thist1] *= factor;
+              history[thist2] *= factor;
             }
           }
           // rotate and update displacements / force.
           // see e.g. eq. 17 of Luding, Gran. Matter 2008, v10,p235
           if (historyupdate) {
-            rsht = history[0]*nx + history[1]*ny + history[2]*nz;
+            rsht = history[thist0]*nx + history[thist1]*ny + history[thist2]*nz;
             if (tangential_model[itype][jtype] == TANGENTIAL_MINDLIN_FORCE ||
                 tangential_model[itype][jtype] ==
                 TANGENTIAL_MINDLIN_RESCALE_FORCE)
@@ -456,36 +494,36 @@ void PairGranular::compute(int eflag, int vflag)
             else
               frameupdate = fabs(rsht)*k_tangential > EPSILON*Fscrit;
             if (frameupdate) {
-              shrmag = sqrt(history[0]*history[0] + history[1]*history[1] +
-                                               history[2]*history[2]);
+              shrmag = sqrt(history[thist0]*history[thist0] + history[thist1]*history[thist1] +
+                                               history[thist2]*history[thist2]);
               // projection
-              history[0] -= rsht*nx;
-              history[1] -= rsht*ny;
-              history[2] -= rsht*nz;
+              history[thist0] -= rsht*nx;
+              history[thist1] -= rsht*ny;
+              history[thist2] -= rsht*nz;
 
               // also rescale to preserve magnitude
-              prjmag = sqrt(history[0]*history[0] + history[1]*history[1] +
-                                               history[2]*history[2]);
+              prjmag = sqrt(history[thist0]*history[thist0] + history[thist1]*history[thist1] +
+                                               history[thist2]*history[thist2]);
               if (prjmag > 0) scalefac = shrmag/prjmag;
               else scalefac = 0;
-              history[0] *= scalefac;
-              history[1] *= scalefac;
-              history[2] *= scalefac;
+              history[thist0] *= scalefac;
+              history[thist1] *= scalefac;
+              history[thist2] *= scalefac;
             }
             // update history
             if (tangential_model[itype][jtype] == TANGENTIAL_HISTORY ||
                 tangential_model[itype][jtype] == TANGENTIAL_MINDLIN ||
                 tangential_model[itype][jtype] == TANGENTIAL_MINDLIN_RESCALE) {
               // tangential displacement
-              history[0] += vtr1*dt;
-              history[1] += vtr2*dt;
-              history[2] += vtr3*dt;
+              history[thist0] += vtr1*dt;
+              history[thist1] += vtr2*dt;
+              history[thist2] += vtr3*dt;
             } else {
               // tangential force
               // see e.g. eq. 18 of Thornton et al, Pow. Tech. 2013, v223,p30-46
-              history[0] -= k_tangential*vtr1*dt;
-              history[1] -= k_tangential*vtr2*dt;
-              history[2] -= k_tangential*vtr3*dt;
+              history[thist0] -= k_tangential*vtr1*dt;
+              history[thist1] -= k_tangential*vtr2*dt;
+              history[thist2] -= k_tangential*vtr3*dt;
             }
             if (tangential_model[itype][jtype] == TANGENTIAL_MINDLIN_RESCALE ||
                 tangential_model[itype][jtype] ==
@@ -497,35 +535,35 @@ void PairGranular::compute(int eflag, int vflag)
           if (tangential_model[itype][jtype] == TANGENTIAL_HISTORY ||
               tangential_model[itype][jtype] == TANGENTIAL_MINDLIN ||
               tangential_model[itype][jtype] == TANGENTIAL_MINDLIN_RESCALE) {
-            fs1 = -k_tangential*history[0] - damp_tangential*vtr1;
-            fs2 = -k_tangential*history[1] - damp_tangential*vtr2;
-            fs3 = -k_tangential*history[2] - damp_tangential*vtr3;
+            fs1 = -k_tangential*history[thist0] - damp_tangential*vtr1;
+            fs2 = -k_tangential*history[thist1] - damp_tangential*vtr2;
+            fs3 = -k_tangential*history[thist2] - damp_tangential*vtr3;
           } else {
-            fs1 = history[0] - damp_tangential*vtr1;
-            fs2 = history[1] - damp_tangential*vtr2;
-            fs3 = history[2] - damp_tangential*vtr3;
+            fs1 = history[thist0] - damp_tangential*vtr1;
+            fs2 = history[thist1] - damp_tangential*vtr2;
+            fs3 = history[thist2] - damp_tangential*vtr3;
           }
 
           // rescale frictional displacements and forces if needed
           fs = sqrt(fs1*fs1 + fs2*fs2 + fs3*fs3);
           if (fs > Fscrit) {
-            shrmag = sqrt(history[0]*history[0] + history[1]*history[1] +
-                                    history[2]*history[2]);
+            shrmag = sqrt(history[thist0]*history[thist0] + history[thist1]*history[thist1] +
+                                    history[thist2]*history[thist2]);
             if (shrmag != 0.0) {
               if (tangential_model[itype][jtype] == TANGENTIAL_HISTORY ||
                   tangential_model[itype][jtype] == TANGENTIAL_MINDLIN ||
                   tangential_model[itype][jtype] ==
                   TANGENTIAL_MINDLIN_RESCALE) {
-                history[0] = -1.0/k_tangential*(Fscrit*fs1/fs +
+                history[thist0] = -1.0/k_tangential*(Fscrit*fs1/fs +
                                                 damp_tangential*vtr1);
-                history[1] = -1.0/k_tangential*(Fscrit*fs2/fs +
+                history[thist1] = -1.0/k_tangential*(Fscrit*fs2/fs +
                                                 damp_tangential*vtr2);
-                history[2] = -1.0/k_tangential*(Fscrit*fs3/fs +
+                history[thist2] = -1.0/k_tangential*(Fscrit*fs3/fs +
                                                 damp_tangential*vtr3);
               } else {
-                history[0] = Fscrit*fs1/fs + damp_tangential*vtr1;
-                history[1] = Fscrit*fs2/fs + damp_tangential*vtr2;
-                history[2] = Fscrit*fs3/fs + damp_tangential*vtr3;
+                history[thist0] = Fscrit*fs1/fs + damp_tangential*vtr1;
+                history[thist1] = Fscrit*fs2/fs + damp_tangential*vtr2;
+                history[thist2] = Fscrit*fs3/fs + damp_tangential*vtr3;
               }
               fs1 *= Fscrit/fs;
               fs2 *= Fscrit/fs;
@@ -776,7 +814,7 @@ void PairGranular::coeff(int narg, char **arg)
   int normal_model_one, damping_model_one;
   int tangential_model_one, roll_model_one, twist_model_one;
 
-  double normal_coeffs_one[4];
+  double normal_coeffs_one[5];
   double tangential_coeffs_one[4];
   double roll_coeffs_one[4];
   double twist_coeffs_one[4];
@@ -847,6 +885,19 @@ void PairGranular::coeff(int narg, char **arg)
       normal_coeffs_one[2] = utils::numeric(FLERR,arg[iarg+3],false,lmp); // Poisson's ratio
       normal_coeffs_one[3] = utils::numeric(FLERR,arg[iarg+4],false,lmp); // cohesion
       iarg += 5;
+    } else if (strcmp(arg[iarg], "luding") == 0) {
+      if (iarg + 5 >= narg)
+        error->all(FLERR,"Illegal pair_coeff command, "
+                   "not enough parameters provided for Luding option");
+      normal_history = 1;
+      normal_history_size = 1;
+      normal_model_one = LUDING;
+      normal_coeffs_one[0] = utils::numeric(FLERR,arg[iarg+1],false,lmp); // k1
+      normal_coeffs_one[1] = utils::numeric(FLERR,arg[iarg+2],false,lmp); // damping
+      normal_coeffs_one[2] = utils::numeric(FLERR,arg[iarg+3],false,lmp); // k2_hat
+      normal_coeffs_one[3] = utils::numeric(FLERR,arg[iarg+4],false,lmp); // kc
+      normal_coeffs_one[4] = utils::numeric(FLERR,arg[iarg+5],false,lmp); // phi_f
+      iarg += 6;
     } else if (strcmp(arg[iarg], "damping") == 0) {
       if (iarg+1 >= narg)
         error->all(FLERR, "Illegal pair_coeff command, "
@@ -1004,14 +1055,19 @@ void PairGranular::coeff(int narg, char **arg)
     for (int j = MAX(jlo,i); j <= jhi; j++) {
       normal_model[i][j] = normal_model[j][i] = normal_model_one;
       normal_coeffs[i][j][1] = normal_coeffs[j][i][1] = damp;
-      if (normal_model_one != HERTZ && normal_model_one != HOOKE) {
+      if (normal_model_one != HERTZ && normal_model_one != HOOKE  && normal_model_one != LUDING) { //Hertz/material, JKR, DMT
         Emod[i][j] = Emod[j][i] = normal_coeffs_one[0];
         poiss[i][j] = poiss[j][i] = normal_coeffs_one[2];
         normal_coeffs[i][j][0] = normal_coeffs[j][i][0] =
           FOURTHIRDS*mix_stiffnessE(Emod[i][j],Emod[i][j],
                                     poiss[i][j],poiss[i][j]);
       } else {
-        normal_coeffs[i][j][0] = normal_coeffs[j][i][0] = normal_coeffs_one[0];
+        normal_coeffs[i][j][0] = normal_coeffs[j][i][0] = normal_coeffs_one[0]; //Hertz, Hooke, or Luding
+      }
+      if (normal_model_one == LUDING){
+        for (int k = 1; k < 5; k++){
+          normal_coeffs[i][j][k] = normal_coeffs[j][i][k] = normal_coeffs_one[k];
+        }
       }
       if ((normal_model_one == JKR) || (normal_model_one == DMT))
         normal_coeffs[i][j][3] = normal_coeffs[j][i][3] = normal_coeffs_one[3];
@@ -1079,37 +1135,46 @@ void PairGranular::init_style()
     for (int j = i; j <= atom->ntypes; j++)
       if (normal_model[i][j] == JKR) use_history = 1;
 
-  size_history = 3*tangential_history + 3*roll_history + twist_history;
+  size_history = 1*normal_history+3*tangential_history + 3*roll_history + twist_history;
 
   // determine location of tangential/roll/twist histories in array
 
-  if (roll_history) {
-    if (tangential_history) roll_history_index = 3;
-    else roll_history_index = 0;
+  if (tangential_history){
+    tangential_history_index = normal_history*normal_history_size;
   }
-  if (twist_history) {
-    if (tangential_history) {
-      if (roll_history) twist_history_index = 6;
-      else twist_history_index = 3;
-    } else {
-      if (roll_history) twist_history_index = 3;
-      else twist_history_index = 0;
+  if (roll_history) {
+    roll_history_index = normal_history*normal_history_size + tangential_history*3;
+  }
+  if (twist_history){
+    twist_history_index = normal_history*normal_history_size + tangential_history*3 + roll_history*3;
+  }
+
+  int store_radius_flag = 0;
+  int store_dmax_flag = 0;
+  for (int i = 1; i <= atom->ntypes; i++){
+    for (int j = i; j <= atom->ntypes; j++){
+      if (tangential_model[i][j] == TANGENTIAL_MINDLIN_RESCALE ||
+          tangential_model[i][j] == TANGENTIAL_MINDLIN_RESCALE_FORCE){
+        store_radius_flag = 1;
+      }
     }
   }
-  for (int i = 1; i <= atom->ntypes; i++)
-    for (int j = i; j <= atom->ntypes; j++)
-      if (tangential_model[i][j] == TANGENTIAL_MINDLIN_RESCALE ||
-          tangential_model[i][j] == TANGENTIAL_MINDLIN_RESCALE_FORCE) {
-        size_history += 1;
-        roll_history_index += 1;
-        twist_history_index += 1;
-        nondefault_history_transfer = 1;
-        history_transfer_factors = new int[size_history];
-        for (int ii = 0; ii < size_history; ++ii)
-          history_transfer_factors[ii] = -1;
-        history_transfer_factors[3] = 1;
-        break;
-      }
+  if (store_radius_flag){
+    nondefault_history_transfer = 1;
+    if (store_radius_flag) {
+      size_history += 1;
+      roll_history_index += 1;
+      twist_history_index += 1;
+    }
+  }
+
+  history_transfer_factors = new int[size_history];
+  for (int ii = 0; ii < size_history; ++ii){
+    history_transfer_factors[ii] = -1;
+  }
+  if (store_radius_flag) history_transfer_factors[tangential_history_index+1] = 1;
+  if (normal_history) history_transfer_factors[0] = 1;
+
 
   int irequest = neighbor->request(this,instance_me);
   neighbor->requests[irequest]->size = 1;
@@ -1228,6 +1293,12 @@ double PairGranular::init_one(int i, int j)
       normal_coeffs[i][j][0] = normal_coeffs[j][i][0] =
         mix_stiffnessE(Emod[i][i], Emod[j][j], poiss[i][i], poiss[j][j]);
 
+    if (normal_model[i][j] == LUDING){
+      for (int k = 0; k < 5; k++){
+        normal_coeffs[i][j][0] = normal_coeffs[j][i][0] = mix_geom(normal_coeffs[i][i][0], normal_coeffs[j][j][0]);
+      }
+    }
+
     normal_coeffs[i][j][1] = normal_coeffs[j][i][1] =
       mix_geom(normal_coeffs[i][i][1], normal_coeffs[j][j][1]);
     if ((normal_model[i][j] == JKR) || (normal_model[i][j] == DMT))
@@ -1320,7 +1391,7 @@ void PairGranular::write_restart(FILE *fp)
         fwrite(&roll_model[i][j],sizeof(int),1,fp);
         fwrite(&twist_model[i][j],sizeof(int),1,fp);
         fwrite(&limit_damping[i][j],sizeof(int),1,fp);
-        fwrite(normal_coeffs[i][j],sizeof(double),4,fp);
+        fwrite(normal_coeffs[i][j],sizeof(double),5,fp);
         fwrite(tangential_coeffs[i][j],sizeof(double),3,fp);
         fwrite(roll_coeffs[i][j],sizeof(double),3,fp);
         fwrite(twist_coeffs[i][j],sizeof(double),3,fp);
@@ -1351,7 +1422,7 @@ void PairGranular::read_restart(FILE *fp)
           utils::sfread(FLERR,&roll_model[i][j],sizeof(int),1,fp,nullptr,error);
           utils::sfread(FLERR,&twist_model[i][j],sizeof(int),1,fp,nullptr,error);
           utils::sfread(FLERR,&limit_damping[i][j],sizeof(int),1,fp,nullptr,error);
-          utils::sfread(FLERR,normal_coeffs[i][j],sizeof(double),4,fp,nullptr,error);
+          utils::sfread(FLERR,normal_coeffs[i][j],sizeof(double),5,fp,nullptr,error);
           utils::sfread(FLERR,tangential_coeffs[i][j],sizeof(double),3,fp,nullptr,error);
           utils::sfread(FLERR,roll_coeffs[i][j],sizeof(double),3,fp,nullptr,error);
           utils::sfread(FLERR,twist_coeffs[i][j],sizeof(double),3,fp,nullptr,error);
@@ -1363,7 +1434,7 @@ void PairGranular::read_restart(FILE *fp)
         MPI_Bcast(&roll_model[i][j],1,MPI_INT,0,world);
         MPI_Bcast(&twist_model[i][j],1,MPI_INT,0,world);
         MPI_Bcast(&limit_damping[i][j],1,MPI_INT,0,world);
-        MPI_Bcast(normal_coeffs[i][j],4,MPI_DOUBLE,0,world);
+        MPI_Bcast(normal_coeffs[i][j],5,MPI_DOUBLE,0,world);
         MPI_Bcast(tangential_coeffs[i][j],3,MPI_DOUBLE,0,world);
         MPI_Bcast(roll_coeffs[i][j],3,MPI_DOUBLE,0,world);
         MPI_Bcast(twist_coeffs[i][j],3,MPI_DOUBLE,0,world);
@@ -1610,24 +1681,27 @@ double PairGranular::single(int i, int j, int itype, int jtype,
   damp_tangential = tangential_coeffs[itype][jtype][1]*damp_normal_prefactor;
 
   if (tangential_history) {
+    int thist0 = tangential_history_index;
+    int thist1 = thist0 + 1;
+    int thist2 = thist0 + 2;
     if (tangential_model[itype][jtype] != TANGENTIAL_HISTORY) {
       k_tangential *= a;
     }
 
-    shrmag = sqrt(history[0]*history[0] + history[1]*history[1] +
-        history[2]*history[2]);
+    shrmag = sqrt(history[thist0]*history[thist0] + history[thist1]*history[thist1] +
+        history[thist2]*history[thist2]);
 
     // tangential forces = history + tangential velocity damping
     if (tangential_model[itype][jtype] == TANGENTIAL_HISTORY ||
         tangential_model[itype][jtype] == TANGENTIAL_MINDLIN ||
         tangential_model[itype][jtype] == TANGENTIAL_MINDLIN_RESCALE) {
-      fs1 = -k_tangential*history[0] - damp_tangential*vtr1;
-      fs2 = -k_tangential*history[1] - damp_tangential*vtr2;
-      fs3 = -k_tangential*history[2] - damp_tangential*vtr3;
+      fs1 = -k_tangential*history[thist0] - damp_tangential*vtr1;
+      fs2 = -k_tangential*history[thist1] - damp_tangential*vtr2;
+      fs3 = -k_tangential*history[thist2] - damp_tangential*vtr3;
     } else {
-      fs1 = history[0] - damp_tangential*vtr1;
-      fs2 = history[1] - damp_tangential*vtr2;
-      fs3 = history[2] - damp_tangential*vtr3;
+      fs1 = history[thist0] - damp_tangential*vtr1;
+      fs2 = history[thist1] - damp_tangential*vtr2;
+      fs3 = history[thist2] - damp_tangential*vtr3;
     }
 
     // rescale frictional forces if needed
