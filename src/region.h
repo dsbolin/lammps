@@ -1,6 +1,6 @@
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -31,6 +31,7 @@ class Region : protected Pointers {
   int varshape;                // 1 if region shape changes over time
   int dynamic;                 // 1 if position/orient changes over time
   int moveflag, rotateflag;    // 1 if position/orientation changes
+  int fillet;                  // 1 if fillet option is activated
   int openflag;                // 1 if any face is open
   int open_faces[6];           // flags for which faces are open
 
@@ -62,6 +63,7 @@ class Region : protected Pointers {
   double prev[5];       // stores displacement (X3), angle and if
                         //  necessary, region variable size (e.g. radius)
                         //  at previous time step
+  double fillet_radius; // radius of fillet, if applicable
   int vel_timestep;     // store timestep at which set_velocity was called
                         //   prevents multiple fix/wall/gran/region calls
   int nregion;          // For union and intersect

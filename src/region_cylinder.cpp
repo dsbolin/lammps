@@ -1,7 +1,7 @@
 // clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -207,9 +207,10 @@ RegCylinder::RegCylinder(LAMMPS *lmp, int narg, char **arg) :
   // particle can only touch surface and 1 end
 
   cmax = 3;
-  contact = new Contact[cmax];
   if (interior) tmax = 2;
   else tmax = 1;
+  contact = new Contact[cmax];
+  if (fillet) tmax = 1;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -258,6 +259,21 @@ int RegCylinder::inside(double x, double y, double z)
     dist = sqrt(del1*del1 + del2*del2);
     if (dist <= radius && z >= lo && z <= hi) inside = 1;
     else inside = 0;
+  }
+
+  if (inside == 1 && fillet){
+    if (axis == 'z'){
+      if (z <= lo + fillet_radius){//Also only set up for bottom fillet
+        double dz = fillet_radius - z + lo;
+        double dr = dist - radius + fillet_radius;
+        if (dz*dz + dr*dr >= fillet_radius*fillet_radius){
+          inside = 0;
+        }
+      }
+    }
+    else{
+      error->all(FLERR, "Fillet currently only implemented for z-axis oriented cylinders");
+    }
   }
 
   return inside;
@@ -374,26 +390,69 @@ int RegCylinder::surface_interior(double *x, double cutoff)
 
     // z is interior to cylinder or on its surface
 
-    delta = radius - r;
-    if (delta < cutoff && r > 0.0 && !open_faces[2]) {
-      contact[n].r = delta;
-      contact[n].delx = del1*(1.0-radius/r);
-      contact[n].dely = del2*(1.0-radius/r);
-      contact[n].delz = 0.0;
-      contact[n].radius = -2.0*radius;
-      contact[n].iwall = 2;
-      contact[n].varflag = 1;
-      n++;
+
+    if (fillet && cutoff < fillet_radius){ //Assumes fillet only at the bottom
+      if (x[2] > lo + fillet_radius){ //Check contact with curved surface above fillet
+        delta = radius - r;
+        if (delta < cutoff && r > 0.0 && !open_faces[2]) {
+          contact[n].r = delta;
+          contact[n].delx = del1*(1.0-radius/r);
+          contact[n].dely = del2*(1.0-radius/r);
+          contact[n].delz = 0.0;
+          contact[n].radius = -2.0*radius;
+          contact[n].iwall = 2;
+          contact[n].varflag = 1;
+          n++;
+        }
+      }
+      else if (r < radius - fillet_radius){ //Check contact with bottom surface interior of the fillet
+        delta = x[2] - lo;
+        if (delta < cutoff && !open_faces[0]) {
+          contact[n].r = delta;
+          contact[n].delz = delta;
+          contact[n].delx = contact[n].dely = 0.0;
+          contact[n].radius = 0;
+          contact[n].iwall = 0;
+          contact[n].varflag = 0;
+          n++;
+        }
+      }
+      else{ //Check contact with fillet
+        double dz = fillet_radius - x[2] + lo;
+        double dr = r - radius + fillet_radius;
+        double dd = sqrt(dz*dz + dr*dr);
+        delta = fillet_radius - dd;
+        if (delta < cutoff){
+          contact[n].r = delta;
+          double drp = delta*dr/dd;
+          contact[n].delx = del1*drp/r;
+          contact[n].dely = del2*drp/r;
+          contact[n].delz = delta*dz/dd;
+        }
+      }
     }
-    delta = x[2] - lo;
-    if (delta < cutoff && !open_faces[0]) {
-      contact[n].r = delta;
-      contact[n].delz = delta;
-      contact[n].delx = contact[n].dely = 0.0;
-      contact[n].radius = 0;
-      contact[n].iwall = 0;
-      contact[n].varflag = 0;
-      n++;
+    else{
+      delta = radius - r;
+      if (delta < cutoff && r > 0.0 && !open_faces[2]) {
+        contact[n].r = delta;
+        contact[n].delx = del1*(1.0-radius/r);
+        contact[n].dely = del2*(1.0-radius/r);
+        contact[n].delz = 0.0;
+        contact[n].radius = -2.0*radius;
+        contact[n].iwall = 2;
+        contact[n].varflag = 1;
+        n++;
+      }
+      delta = x[2] - lo;
+      if (delta < cutoff && !open_faces[0]) {
+        contact[n].r = delta;
+        contact[n].delz = delta;
+        contact[n].delx = contact[n].dely = 0.0;
+        contact[n].radius = 0;
+        contact[n].iwall = 0;
+        contact[n].varflag = 0;
+        n++;
+      }
     }
     delta = hi - x[2];
     if (delta < cutoff && !open_faces[1]) {

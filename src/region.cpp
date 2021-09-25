@@ -1,7 +1,7 @@
 // clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
-   https://lammps.sandia.gov/, Sandia National Laboratories
+   https://www.lammps.org/, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
@@ -30,9 +30,9 @@ using namespace LAMMPS_NS;
 /* ---------------------------------------------------------------------- */
 
 Region::Region(LAMMPS *lmp, int /*narg*/, char **arg) :
-  Pointers(lmp),
-  id(nullptr), style(nullptr), contact(nullptr), list(nullptr),
-  xstr(nullptr), ystr(nullptr), zstr(nullptr), tstr(nullptr)
+      Pointers(lmp),
+      id(nullptr), style(nullptr), contact(nullptr), list(nullptr),
+      xstr(nullptr), ystr(nullptr), zstr(nullptr), tstr(nullptr)
 {
   id = utils::strdup(arg[0]);
   style = utils::strdup(arg[1]);
@@ -372,6 +372,15 @@ void Region::options(int narg, char **arg)
       openflag = 1;
       iarg += 2;
     }
+    else if (strcmp(arg[iarg],"fillet") == 0) {
+      if (iarg+2 > narg) error->all(FLERR,"Illegal region command");
+      fillet_radius = utils::numeric(FLERR,arg[iarg+1],false,lmp);
+      fillet = true;
+      if (fillet_radius <= 0) error->all(FLERR,"Illegal region command, fillet radius must be >= 0");
+      //fillet should only apply to block, cylinder, cone, prism; there is a check on this with individual regions, and
+      //a warning is issued accordingly.
+      iarg += 2;
+    }
     else error->all(FLERR,"Illegal region command");
   }
 
@@ -421,7 +430,7 @@ void Region::options(int narg, char **arg)
 ------------------------------------------------------------------------- */
 
 void Region::point_on_line_segment(double *a, double *b,
-                                   double *c, double *d)
+    double *c, double *d)
 {
   double ba[3],ca[3];
 
@@ -528,8 +537,8 @@ void Region::velocity_contact(double *vwall, double *x, int ic)
 void Region::length_restart_string(int &n)
 {
   n += sizeof(int) + strlen(id)+1 +
-    sizeof(int) + strlen(style)+1 + sizeof(int) +
-    size_restart*sizeof(double);
+      sizeof(int) + strlen(style)+1 + sizeof(int) +
+      size_restart*sizeof(double);
 }
 
 /* ----------------------------------------------------------------------
