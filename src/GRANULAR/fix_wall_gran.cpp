@@ -194,7 +194,7 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
         normal_coeffs[2] = utils::numeric(FLERR,arg[iarg+3],false,lmp); //k2_hat
         normal_coeffs[3] = utils::numeric(FLERR,arg[iarg+4],false,lmp); //kc
         normal_coeffs[4] = utils::numeric(FLERR,arg[iarg+5],false,lmp); //phi_f
-        iarg += 5;
+        iarg += 6;
       } else if (strcmp(arg[iarg], "damping") == 0) {
         if (iarg+1 >= narg)
           error->all(FLERR, "Illegal wall/gran command, "
@@ -1225,7 +1225,7 @@ void FixWallGran::granular(double rsq, double dx, double dy, double dz,
     k2_hat = normal_coeffs[2];
     kc = normal_coeffs[3];
     phi_f = normal_coeffs[4];
-    dmax_star = k2_hat*(k2_hat-k1)*phi_f*2*Reff;
+    dmax_star = k2_hat/(k2_hat-k1)*phi_f*2*Reff;
     dmax = history[0];
     if (delta > dmax){
       dmax = delta;

@@ -84,7 +84,7 @@ class FixWallGran : public Fix {
   double Emod, poiss, Gmod;
 
   // contact model coefficients
-  double normal_coeffs[4];
+  double normal_coeffs[5];
   double tangential_coeffs[3];
   double roll_coeffs[3];
   double twist_coeffs[3];

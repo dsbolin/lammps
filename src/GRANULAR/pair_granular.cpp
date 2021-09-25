@@ -372,7 +372,7 @@ void PairGranular::compute(int eflag, int vflag)
           k2_hat = normal_coeffs[itype][jtype][2];
           kc = normal_coeffs[itype][jtype][3];
           phi_f = normal_coeffs[itype][jtype][4];
-          dmax_star = k2_hat*(k2_hat-k1)*phi_f*2*Reff;
+          dmax_star = k2_hat/(k2_hat-k1)*phi_f*2*Reff;
           dmax = history[0];
           if (delta > dmax){
             dmax = delta;
@@ -768,7 +768,7 @@ void PairGranular::allocate()
 
   memory->create(cutsq,n+1,n+1,"pair:cutsq");
   memory->create(cutoff_type,n+1,n+1,"pair:cutoff_type");
-  memory->create(normal_coeffs,n+1,n+1,4,"pair:normal_coeffs");
+  memory->create(normal_coeffs,n+1,n+1,5,"pair:normal_coeffs");
   memory->create(tangential_coeffs,n+1,n+1,3,"pair:tangential_coeffs");
   memory->create(roll_coeffs,n+1,n+1,3,"pair:roll_coeffs");
   memory->create(twist_coeffs,n+1,n+1,3,"pair:twist_coeffs");
