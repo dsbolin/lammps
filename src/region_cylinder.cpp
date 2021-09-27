@@ -425,9 +425,10 @@ int RegCylinder::surface_interior(double *x, double cutoff)
         if (delta < cutoff){
           contact[n].r = delta;
           double drp = delta*dr/dd;
-          contact[n].delx = del1*drp/r;
-          contact[n].dely = del2*drp/r;
+          contact[n].delx = -del1*drp/r;
+          contact[n].dely = -del2*drp/r;
           contact[n].delz = delta*dz/dd;
+          n++;
         }
       }
     }
