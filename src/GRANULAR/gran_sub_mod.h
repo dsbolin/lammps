@@ -42,7 +42,7 @@ class GranSubMod : protected Pointers {
   int history_index;
   int beyond_contact;  // If the sub model contact extends beyond overlap
   int allow_cohesion;  // If the sub model works with a cohesive normal force
-  int area_flag;       // If the sub model requires area
+  int contact_radius_flag; // If the sub model requires contact radius
   int static_friction; // If the sub model has separate static/dynamic friction
 
   GranularModel *gm;
