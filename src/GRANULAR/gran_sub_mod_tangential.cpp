@@ -220,6 +220,8 @@ void GranSubModTangentialLinearHistoryStatic::calculate_forces()
 
   damp = xt * gm->damping_model->damp_prefactor;
 
+  double Fncrit_static = gm->normal_model->Fncrit * mu_static;
+  double Fncrit_dynamic = gm->normal_model->Fncrit * mu_dynamic;
   double *history = & gm->history[history_index];
   double Fscrit_static = gm->normal_model->Fncrit * mu_static;
   double Fscrit_dynamic = gm->normal_model->Fncrit * mu_dynamic;
@@ -594,10 +596,9 @@ void GranSubModTangentialMindlinStatic::calculate_forces()
   dynamic = history[3];
 
   if (dynamic) {
-	Fscrit = gm->normal_model->Fncrit * mu_dynamic;
-  }
-  else {
-	Fscrit = gm->normal_model->Fncrit * mu_static;
+	  Fscrit = gm->normal_model->Fncrit * mu_dynamic;
+  } else {
+	  Fscrit = gm->normal_model->Fncrit * mu_static;
   }
 
   // rotate and update displacements / force.
@@ -961,11 +962,9 @@ void GranSubModTangentialMindlinStatic::calculate_forces()
     }
     if (!dynamic) history[3] = 1; // If force exceeds Fcrit_static,
     					          // switch to dynamic case
-  }
-  else{
+  } else {
 	  if (dynamic) history[3] = 0; //If force drops below Fcrit_dynamic,
-	  	  	  	  	  	  	  	   //switch back to static case
-  }
+	}  	  	  	  	  	  	  	   //switch back to static case  
 }
 
 /*-----------------------------------------------------------------------
