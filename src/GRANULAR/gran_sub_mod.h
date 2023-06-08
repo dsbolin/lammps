@@ -40,9 +40,10 @@ class GranSubMod : protected Pointers {
   double *transfer_history_factor;
 
   int history_index;
-  int beyond_contact;       // If the sub model contact extends beyond overlap
-  int allow_cohesion;       // If the sub model works with a cohesive normal force
-  int contact_radius_flag;  // If the sub model requires contact radius
+  int beyond_contact;  // If the sub model contact extends beyond overlap
+  int allow_cohesion;  // If the sub model works with a cohesive normal force
+  int area_flag;       // If the sub model requires area
+  int static_friction; // If the sub model has separate static/dynamic friction
 
   GranularModel *gm;
 
@@ -54,7 +55,6 @@ class GranSubMod : protected Pointers {
   double mix_stiffnessE_wall(double, double);
   double mix_stiffnessG_wall(double, double);
   double mix_geom(double, double);
-  double mix_mean(double, double);
 };
 
 }    // namespace GranularModel

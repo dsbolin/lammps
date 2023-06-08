@@ -51,13 +51,13 @@ bool GranSubModNormal::touch()
 
 double GranSubModNormal::pulloff_distance(double /*radi*/, double /*radj*/)
 {
-  // called outside of compute(), do not assume correct geometry defined in contact
-  return 0.0;
+  //called outside of compute(), do not assume correct geometry defined in contact
+  return 0;
 }
 
 /* ---------------------------------------------------------------------- */
 
-double GranSubModNormal::calculate_contact_radius()
+double GranSubModNormal::calculate_area()
 {
   return sqrt(gm->dR);
 }
@@ -120,7 +120,7 @@ GranSubModNormalHertz::GranSubModNormalHertz(GranularModel *gm, LAMMPS *lmp) :
     GranSubModNormal(gm, lmp)
 {
   num_coeffs = 2;
-  contact_radius_flag = 1;
+  area_flag = 1;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -137,7 +137,7 @@ void GranSubModNormalHertz::coeffs_to_local()
 
 double GranSubModNormalHertz::calculate_forces()
 {
-  return k * gm->contact_radius * gm->delta;
+  return k * gm->area * gm->delta;
 }
 
 /* ----------------------------------------------------------------------
@@ -237,8 +237,8 @@ void GranSubModNormalDMT::mix_coeffs(double *icoeffs, double *jcoeffs)
 
 double GranSubModNormalDMT::calculate_forces()
 {
-  Fne = k * gm->contact_radius * gm->delta;
-  F_pulloff = 4.0 * MY_PI * cohesion * gm->Reff;
+  Fne = k * gm->area * gm->delta;
+  F_pulloff = 4.0 * MathConst::MY_PI * cohesion * gm->Reff;
   Fne -= F_pulloff;
   return Fne;
 }
@@ -305,13 +305,14 @@ void GranSubModNormalJKR::mix_coeffs(double *icoeffs, double *jcoeffs)
 
 bool GranSubModNormalJKR::touch()
 {
-  double delta_pulloff, dist_pulloff;
+  double area_at_pulloff, R2, delta_pulloff, dist_pulloff;
   bool touchflag;
 
   if (gm->touch) {
-    // delta_pulloff defined as positive so center-to-center separation is > radsum
-    delta_pulloff = JKRPREFIX * cbrt(gm->Reff * cohesion * cohesion / (Emix * Emix));
-    dist_pulloff = gm->radsum + delta_pulloff;
+    R2 = gm->Reff * gm->Reff;
+    area_at_pulloff = cbrt(9.0 * MY_PI * cohesion * R2 / (4.0 * Emix));
+    delta_pulloff = area_at_pulloff * area_at_pulloff / gm->Reff - 2.0 * sqrt(MY_PI * cohesion * area_at_pulloff / Emix);
+    dist_pulloff = gm->radsum - delta_pulloff;
     touchflag = gm->rsq < (dist_pulloff * dist_pulloff);
   } else {
     touchflag = gm->rsq < (gm->radsum * gm->radsum);
@@ -326,17 +327,18 @@ bool GranSubModNormalJKR::touch()
 
 double GranSubModNormalJKR::pulloff_distance(double radi, double radj)
 {
-  double Reff_tmp;
+  double area_at_pulloff, Reff_tmp;
 
   Reff_tmp = radi * radj / (radi + radj);    // May not be defined
   if (Reff_tmp <= 0) return 0;
-  // Defined as positive so center-to-center separation is > radsum
-  return JKRPREFIX * cbrt(Reff_tmp * cohesion * cohesion / (Emix * Emix));
+
+  area_at_pulloff = cbrt(9.0 * MY_PI * cohesion * Reff_tmp * Reff_tmp / (4.0 * Emix));
+  return area_at_pulloff * area_at_pulloff / Reff_tmp - 2.0 * sqrt(MY_PI * cohesion * area_at_pulloff / Emix);
 }
 
 /* ---------------------------------------------------------------------- */
 
-double GranSubModNormalJKR::calculate_contact_radius()
+double GranSubModNormalJKR::calculate_area()
 {
   double R2, dR2, t0, t1, t2, t3, t4, t5, t6;
   double sqrt1, sqrt2, sqrt3;
@@ -378,3 +380,87 @@ void GranSubModNormalJKR::set_fncrit()
 {
   Fncrit = fabs(Fne + 2.0 * F_pulloff);
 }
+
+
+/* ----------------------------------------------------------------------
+   Elastic-plastic-adhesive, linear
+------------------------------------------------------------------------- */
+
+GranSubModNormalEPALinear::GranSubModNormalEPALinear(GranularModel *gm, LAMMPS *lmp) : GranSubModNormal(gm, lmp)
+{
+  cohesive_flag = 1;
+  num_coeffs = 6;
+  size_history = 1;
+  area_flag = 1;
+
+  nondefault_history_transfer = 1;
+  transfer_history_factor = new double[size_history];
+  transfer_history_factor[0] = +1;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void GranSubModNormalEPALinear::coeffs_to_local()
+{
+  k1 = coeffs[0];
+  damp = coeffs[1];
+  k2_hat = coeffs[2];
+  kc = coeffs[3];
+  phi_f = coeffs[4];
+  f0 = coeffs[5];
+
+  if (k1 < 0.0 || damp < 0.0 || k2_hat < 0.0 || kc < 0 || phi_f < 0 || f0 < 0) error->all(FLERR, "Illegal EPA linear normal model");
+}
+
+/* ---------------------------------------------------------------------- */
+
+
+void GranSubModNormalEPALinear::set_fncrit()
+{
+  if (adhesive){
+    Fncrit = fabs(gm->Fntot + kc*gm->delta + f0);
+  }
+  else{
+    Fncrit = fabs(gm->Fntot + f0);
+  }
+}
+/* ---------------------------------------------------------------------- */
+
+double GranSubModNormalEPALinear::calculate_forces()
+{
+  double dmax, dmax_star, k2;
+  double d0, k1delta, kcdelta, k2_dd0;
+  double *history = & gm->history[history_index];
+  double delta = gm->delta;
+  double Fne;
+
+  dmax_star = k2_hat/(k2_hat-k1)*phi_f*2*gm->Reff;
+  dmax = history[0];
+  if (dmax > dmax_star){
+    k2 = k2_hat;
+  }
+  else{
+    k2 = k1+(k2_hat-k1)*dmax/dmax_star;
+  }
+  d0 = (1-k1/k2)*dmax;
+  k1delta = k1*delta;
+  kcdelta =  k1*delta;
+  kcdelta = -kc*delta;
+  k2_dd0 = k2*(delta-d0);
+  if (k2_dd0 >= k1delta){
+    Fne = k1delta;
+  }
+  else if ((k1delta > k2_dd0) && (k2_dd0 > kcdelta)){
+    Fne = k2_dd0;
+    adhesive = false;
+  }
+  else if (kcdelta >= k2_dd0){
+    Fne = kcdelta;
+    adhesive = true;
+  }
+  Fne -= f0;
+  return Fne;
+}
+
+/* ---------------------------------------------------------------------- */
+
