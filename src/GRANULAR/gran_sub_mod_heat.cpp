@@ -64,5 +64,6 @@ void GranSubModHeatArea::coeffs_to_local()
 
 double GranSubModHeatArea::calculate_heat()
 {
-  return conductivity * MY_PI * gm->contact_radius * gm->contact_radius * (gm->Tj - gm->Ti);
+  //return conductivity * MY_PI * gm->contact_radius * gm->contact_radius * (gm->Tj - gm->Ti);
+  return conductivity * gm->contact_radius * (gm->Tj - gm->Ti);
 }
