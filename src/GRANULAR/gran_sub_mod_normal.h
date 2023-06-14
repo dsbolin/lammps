@@ -20,6 +20,9 @@ GranSubModStyle(hertz/material,GranSubModNormalHertzMaterial,NORMAL);
 GranSubModStyle(dmt,GranSubModNormalDMT,NORMAL);
 GranSubModStyle(jkr,GranSubModNormalJKR,NORMAL);
 GranSubModStyle(mdr,GranSubModNormalMDR,NORMAL);
+GranSubModStyle(epa_linear,GranSubModNormalEPALinear,NORMAL);
+GranSubModStyle(epa_nonlinear,GranSubModNormalEEPA,NORMAL);
+
 // clang-format on
 #else
 
@@ -209,12 +212,12 @@ class GranSubModNormalEPALinear : public GranSubModNormal {
  public:
   GranSubModNormalEPALinear(class GranularModel *, class LAMMPS *);
   void coeffs_to_local() override;
-  double calculate_forces();
+  double calculate_forces() override;
   void set_fncrit() override;
   bool adhesive;
 
  protected:
-  double k1, k2_hat, kc, phi_f, f0;
+  double k1, k2_hat, kc, kc_delta, phi_f, f0;
 };
 
 /* ---------------------------------------------------------------------- */
@@ -223,15 +226,16 @@ class GranSubModNormalEEPA : public GranSubModNormal {
  public:
   GranSubModNormalEEPA(class GranularModel *, class LAMMPS *);
   void coeffs_to_local() override;
-  double calculate_forces();
-  double calculate_contact_radius();
+  void mix_coeffs(double *, double *) override;
+  double calculate_forces() override;
+  double calculate_contact_radius() override;
   void set_fncrit() override;
   bool adhesive;
 
  protected:
-  double E, poiss, lambda_p, f0, kadh, mexp;
-  double delta_p;
-  double minv, lp_minv;
+  double k1, Emod, poiss, damp, lambda_p, f0, kadh, mexp;
+  double k2fac, delta_p, minv, lp_minv, ka_dm;
+  int mixed_coefficients;   
 };
 
 /*class GranSubModNormalEPA : public GranSubModNormal {
