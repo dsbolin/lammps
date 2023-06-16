@@ -491,6 +491,9 @@ GranSubModTangentialMindlinStatic::GranSubModTangentialMindlinStatic(GranularMod
   num_coeffs = 4;
   size_history = 4;
   contact_radius_flag = 1;
+  mindlin_force = 0;
+  mindlin_rescale = 0;
+
   nondefault_history_transfer = 1;
   transfer_history_factor = new double[size_history];
   for (int i = 0; i < size_history; i++) transfer_history_factor[i] = -1.0;
