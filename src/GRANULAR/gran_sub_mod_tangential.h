@@ -16,6 +16,7 @@
 GranSubModStyle(none,GranSubModTangentialNone,TANGENTIAL);
 GranSubModStyle(linear_nohistory,GranSubModTangentialLinearNoHistory,TANGENTIAL);
 GranSubModStyle(linear_history,GranSubModTangentialLinearHistory,TANGENTIAL);
+GranSubModStyle(linear_history_static,GranSubModTangentialLinearHistoryStatic,TANGENTIAL);
 GranSubModStyle(linear_history_classic,GranSubModTangentialLinearHistoryClassic,TANGENTIAL);
 GranSubModStyle(mindlin_classic,GranSubModTangentialMindlinClassic,TANGENTIAL);
 GranSubModStyle(mindlin,GranSubModTangentialMindlin,TANGENTIAL);
