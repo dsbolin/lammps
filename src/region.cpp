@@ -309,6 +309,7 @@ void Region::options(int narg, char **arg)
   interior = 1;
   scaleflag = 1;
   moveflag = rotateflag = 0;
+  fillet = 0;
 
   openflag = 0;
   for (int i = 0; i < 6; i++) open_faces[i] = 0;
@@ -375,8 +376,13 @@ void Region::options(int narg, char **arg)
       open_faces[iface - 1] = 1;
       openflag = 1;
       iarg += 2;
-    } else
-      error->all(FLERR, "Illegal region command argument: {}", arg[iarg]);
+    } else if (strcmp(arg[iarg],"fillet") == 0) {
+      if (iarg+2 > narg) error->all(FLERR,"Illegal region command");
+      fillet_radius = utils::numeric(FLERR,arg[iarg+1],false,lmp);
+      fillet = true;
+      if (fillet_radius <= 0) error->all(FLERR,"Illegal region command, fillet radius must be >= 0");
+    }
+    else error->all(FLERR, "Illegal region command argument: {}", arg[iarg]);
   }
 
   // error check

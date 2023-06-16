@@ -35,6 +35,9 @@ class Region : protected Pointers {
   int openflag;                // 1 if any face is open
   int open_faces[6];           // flags for which faces are open
 
+  int fillet;                  // 1 if fillet option is activated
+  double fillet_radius;        // radius of fillet, if applicable
+
   int copymode;    // 1 if copy of original class
 
   // contact = particle near region surface (for soft interactions)
