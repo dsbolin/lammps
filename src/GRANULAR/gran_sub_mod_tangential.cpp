@@ -490,7 +490,7 @@ GranSubModTangentialMindlinStatic::GranSubModTangentialMindlinStatic(GranularMod
 {
   num_coeffs = 4;
   size_history = 4;
-
+  contact_radius_flag = 1;
   nondefault_history_transfer = 1;
   transfer_history_factor = new double[size_history];
   for (int i = 0; i < size_history; i++) transfer_history_factor[i] = -1.0;
@@ -528,8 +528,10 @@ void GranSubModTangentialMindlinStatic::coeffs_to_local()
 
 void GranSubModTangentialMindlinStatic::mix_coeffs(double* icoeffs, double* jcoeffs)
 {
-  if (icoeffs[0] == -1 || jcoeffs[0] == -1) coeffs[0] = -1;
-  else coeffs[0] = mix_geom(icoeffs[0], jcoeffs[0]);
+  if (icoeffs[0] == -1 || jcoeffs[0] == -1) 
+    coeffs[0] = -1;
+  else 
+    coeffs[0] = mix_geom(icoeffs[0], jcoeffs[0]);
   coeffs[1] = mix_geom(icoeffs[1], jcoeffs[1]);
   coeffs[2] = mix_geom(icoeffs[2], jcoeffs[2]);
   coeffs[3] = mix_geom(icoeffs[3], jcoeffs[3]);
