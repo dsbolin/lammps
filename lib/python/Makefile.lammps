@@ -1,7 +1,13 @@
 # Settings that the LAMMPS build will import when this package library is used
 # See the README file for more explanation
 
-python_SYSINC = $(shell which python-config > /dev/null 2>&1 && python-config --includes || :)
-python_SYSLIB = $(shell which python-config > /dev/null 2>&1 && python-config --ldflags --embed > /dev/null 2>&1 && python-config --ldflags --embed || (which python-config > /dev/null 2>&1 && python-config --ldflags || :) )
-python_SYSPATH =
-PYTHON=python
+#python_SYSINC = $(shell which python-config > /dev/null 2>&1 && python-config --includes || :)
+#python_SYSLIB = $(shell which python-config > /dev/null 2>&1 && python-config --ldflags --embed > /dev/null 2>&1 && python-config --ldflags --embed || (which python-config > /dev/null 2>&1 && python-config --ldflags || :) )
+#python_SYSPATH =
+#PYTHON=python
+
+python_SYSINC = -I/home/dsbolin/.local/include/python3.10 -I/home/dsbolin/.local/include/python3.10
+python_SYSLIB =  -L/home/dsbolin/.local/lib -lpython3.10 -lcrypt -lpthread -ldl  -lutil -lm -lm -export-dynamic
+python_SYSPATH = 
+PYTHON = /home/dsbolin/.local/bin/python3.10
+
