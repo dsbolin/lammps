@@ -46,6 +46,27 @@ class FixHeatFlow : public Fix {
   int cp_style;
   int first_flag;
 
+  int maxatom;
+
+  //For heat source 
+  int source;
+  int source_style;
+  char *source_str;
+  int source_var;
+  double source_value;
+  double *sourceval;
+  
+  //For reaction models
+  int reaction;
+  int nreaction;
+  int reaction_atom;
+  int *reaction_style;
+  char **reaction_str;
+  double *reaction_value;
+  double **rxn_array;
+  double **reaction_extents;
+  
+
   double calc_cp(int);
 };
 
