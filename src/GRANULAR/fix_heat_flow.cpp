@@ -27,39 +27,96 @@ using namespace LAMMPS_NS;
 using namespace FixConst;
 
 enum {NONE, CONSTANT, TYPE};
+enum {NO_SOURCE, CONSTANT_SOURCE, EQUAL_SOURCE, ATOM_SOURCE};
+enum {NO_RXN, CONSTANT_RXN, EQUAL_RXN, ATOM_RXN};
+
+
 
 /* ---------------------------------------------------------------------- */
 
 FixHeatFlow::FixHeatFlow(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg)
+  Fix(lmp, narg, arg), sourceval(nullptr)
 {
   if (narg < 4) error->all(FLERR,"Illegal fix command");
 
   cp_style = NONE;
+  react = 0;
+  nreact = 0;
   comm_forward = 1;
   comm_reverse = 1;
 
   int ntypes = atom->ntypes;
-  if (strcmp(arg[3],"constant") == 0) {
-    if (narg != 5) error->all(FLERR,"Illegal fix command");
-    cp_style = CONSTANT;
-    cp = utils::numeric(FLERR,arg[4],false,lmp);
-    if (cp < 0.0) error->all(FLERR,"Illegal fix command");
-  } else if (strcmp(arg[3],"type") == 0) {
-    if (narg != 4 + ntypes) error->all(FLERR,"Illegal fix command");
-    cp_style = TYPE;
-    memory->create(cp_type,ntypes+1,"fix/temp/integrate:cp_type");
-    for (int i = 1; i <= ntypes; i++) {
-      cp_type[i] = utils::numeric(FLERR,arg[3+i],false,lmp);
-      if (cp_type[i] < 0.0) error->all(FLERR,"Illegal fix command");
+
+  int iarg = 3;
+  while (iarg < narg){
+    if (strcmp(arg[iarg],"constant") == 0) {
+      if (narg != 5) error->all(FLERR,"Illegal fix command");
+      cp_style = CONSTANT;
+      cp = utils::numeric(FLERR,arg[4],false,lmp);
+      if (cp < 0.0) error->all(FLERR,"Illegal fix command");
+      iarg += 2;
+    } else if (strcmp(arg[iarg],"type") == 0) {
+      if (narg != 4 + ntypes) error->all(FLERR,"Illegal fix command");
+      cp_style = TYPE;
+      memory->create(cp_type,ntypes+1,"fix/temp/integrate:cp_type");
+      for (int i = 1; i <= ntypes; i++) {
+	cp_type[i] = utils::numeric(FLERR,arg[iarg+i],false,lmp);
+	if (cp_type[i] < 0.0) error->all(FLERR,"Illegal fix command");
+      }
+      iarg += ntypes + 1;
+    } else if (strcmp(arg[iarg], "source") == 0){
+      if (iarg + 2 > narg) utils::missing_cmd_args(FLERR, "fix heat/flow source", error);
+      if (utils::strmatch(arg[iarg + 1], "^v_")) {
+	source_str = utils::strdup(arg[iarg + 1] + 2);
+      } else {
+	source_value = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
+	source_style = CONSTANT_SOURCE;
+      }
+    } else if (strcmp(arg[iarg], "reaction") == 0){
+      //Args are :
+      // - number of reactions (nreact)
+      // - name of custom property/atom vector (or array if nreact > 1)
+      // - per-atom or equal-style variable names or constants that define reaction rates (nreact repeats)
+      if (iarg + 2 > narg) utils::missing_cmd_args(FLERR, "fix heat/flow reaction", error);
+      reaction = 1;
+      nreaction = utils::inumeric(FLERR, arg[iarg+1], false, lmp);
+      if (iarg + nreaction + 3 > narg) utils::missing_cmd_args(FLERR, "fix heat/flow reaction", error);
+      if (utils::strmatch(arg[iarg+2], "^d_")){
+	int is_double, cols;
+	int custom_index = atom->find_custom(arg[iarg+2], is_double, cols);
+	if (custom_index == -1){
+	  error->all(FLERR,"Fix heat/flow reaction requires previously defined property/atom");
+	}
+	if (cols != nreact){
+	  error->all(FLERR,"Fix heat/flow reaction requires property/atom array with number of columns that match number of reactions");
+	}
+	reaction_extents = atom->darray[custom_index];
+      } else error->all(FLERR,"Fix heat/flow reaction requires property/atom vector or array of doubles");
+      reaction_str = new char*[nreact];
+      reaction_style = new int[nreact];
+      reaction_var = new int[nreact];
+      reaction_value = new double[nreact];
+      for (int i = 0; i < nreact; i++){
+	if (utils::strmatch(arg[iarg + 3 + i], "^v")){
+	  reaction_str[i] = utils::strdup(arg[iarg + 3 + i]);	  
+	}
+	else{
+	  reaction_value[i] = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
+	  reaction_style[i] = CONSTANT_RXN;
+	}
+      }
     }
-  } else {
-    error->all(FLERR,"Illegal fix command");
-  }
+    else {
+      error->all(FLERR,"Illegal fix command");
+    }
 
   if (cp_style == NONE)
     error->all(FLERR, "Must specify specific heat in fix temp/integrate");
   dynamic_group_allow = 1;
+
+  maxatom = 1;
+  memory->create(sourceval, maxatom, 1, "heatflow:sourceval");
+  memory->create(rxn_array, maxatom, nreact, "heatflow:rxn_array");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -83,12 +140,35 @@ void FixHeatFlow::init()
     error->all(FLERR,"Fix temp/integrate requires atom style with temperature property");
   if (!atom->heatflow_flag)
     error->all(FLERR,"Fix temp/integrate requires atom style with heatflow property");
-}
 
-/* ---------------------------------------------------------------------- */
-
-void FixHeatFlow::setup(int /*vflag*/)
-{
+  if (source_str){
+    source_var = input->variable->find(source_str);
+    if (source_var < 0) error->all(FLERR, "Variable {} for fix heat/flow source does not exist", source_str);
+    if (input->variable->equalstyle(source_var))
+      source_style = EQUAL_SOURCE;
+    else if (input->variable->atomstyle(source_var)){
+      source_style = ATOM_SOURCE;  
+    }
+    else
+      error->all(FLERR, "Variable {} for fix heat/flow source is invalid style", source_str);
+  }
+  if (reaction){
+    reaction_atom = 0;
+    for (int i = 0; i < nreaction; i++){
+      if (reaction_str[i]){
+	reaction_var[i] = input->variable->find(reaction_str[i]);
+	if (reaction_var[i] < 0) error->all(FLERR, "Variable {} for fix heat/flow reaction does not exist", reaction_str[i]);
+	if (input->variable->equalstyle(reaction_var[i]))
+	  reaction_style[i] = EQUAL_REACTION;
+	else if (input->variable->atomstyle(reaction_var[i])){
+	  reaction_style[i] = ATOM_REACTION;
+	  reaction_atom = 1;
+	}
+	else
+	  error->all(FLERR, "Variable {} for fix heat/flow reaction is invalid style", reaction_str[i]);
+      }
+    }
+  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -142,13 +222,56 @@ void FixHeatFlow::final_integrate()
   if (rmass) {
     for (int i = 0; i < nlocal; i++)
       if (mask[i] & groupbit) {
-        temperature[i] += dt * heatflow[i] / (calc_cp(i) * rmass[i]);
+        temperature[i] += dt * heatflow[i] / (calc_cp(i) * rmass[i]);	
       }
   } else {
     for (int i = 0; i < nlocal; i++)
       if (mask[i] & groupbit) {
         temperature[i] += dt * heatflow[i] / (calc_cp(i) * mass[type[i]]);
       }
+  }
+  if (source){
+    // Reallocate sourceval array if necessary
+    if ((source_style == ATOM_SOURCE) && (atom->nmax > maxatom)){
+      maxatom = atom->nmax;
+      memory->destroy(sourceval);
+      memory->create(sourceval, maxatom, 1, "heatflow:sourceval");
+    }
+
+    if (source_style == EQUAL_SOURCE){
+      source_value = input->variable->compute_equal(source_var);
+    }
+    else if (source_style == ATOM_SOURCE){
+      input->variable->compute_atom(source_var, igroup, sourceval, 1, 0);
+    }
+    for (int i = 0; i < nlocal; i++){
+      if (mask[i] & groupbit) {
+	if (source_style == ATOM_SOURCE) source_value = sourceval[i];
+	temperature[i] += dt*source_value;
+      }
+    }
+  }
+  if (reaction){
+    // Rellocate reaction rate arrays if necessary
+    if ((reaction_style == ATOM_REACTION) && (atom->nmax > maxatom)){
+      maxatom = atom->nmax;
+      memory->destroy(rxn_array);
+      memory->create(rxn_array, maxatom, nreaction, "heatflow:reaction");
+    }
+
+    for (int j = 0; j < nreact; j++){
+      if (reaction_style[j] == ATOM_REACTION){
+	input->variable->compute_atom(source_var, igroup, &rxn_array[0][j], nreact, 0);     
+      }
+    }
+
+    // Update extents of reaction
+    for (int i = 0; i < nlocal; i++){
+      for (int j = 0; j < nreact; j++){	
+	if (reaction_style[j] == ATOM_REACTION) reaction_value[j] = rxn_array[i][j];
+	reaction_extents[i][j] += dt*reaction_value[j];
+      }
+    }
   }
 }
 
