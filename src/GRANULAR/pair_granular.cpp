@@ -52,7 +52,7 @@ PairGranular::PairGranular(LAMMPS *lmp) : Pair(lmp)
   centroidstressflag = CENTROID_NOTAVAIL;
   finitecutflag = 1;
 
-  single_extra = 12;
+  single_extra = 13;
   svector = new double[single_extra];
 
   neighprev = 0;
@@ -769,6 +769,11 @@ double PairGranular::single(int i, int j, int itype, int jtype,
   model->calculate_forces();
   double *forces = model->forces;
 
+  double dq = 0;
+  if (heat_flag) {
+    dq = model->dq;
+  }
+
   // apply forces & torques
   fforce = MathExtra::len3(forces);
 
@@ -785,6 +790,7 @@ double PairGranular::single(int i, int j, int itype, int jtype,
   svector[9] = model->dx[0];
   svector[10] = model->dx[1];
   svector[11] = model->dx[2];
+  svector[12] = dq;
 
   return 0.0;
 }

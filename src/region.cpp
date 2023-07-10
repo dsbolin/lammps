@@ -381,6 +381,7 @@ void Region::options(int narg, char **arg)
       fillet_radius = utils::numeric(FLERR,arg[iarg+1],false,lmp);
       fillet = true;
       if (fillet_radius <= 0) error->all(FLERR,"Illegal region command, fillet radius must be >= 0");
+      iarg += 2;
     }
     else error->all(FLERR, "Illegal region command argument: {}", arg[iarg]);
   }

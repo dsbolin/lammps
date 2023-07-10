@@ -162,7 +162,7 @@ class GranSubModNormalEEPA : public GranSubModNormal {
   bool adhesive;
 
  protected:
-  double k1, Emod, poiss, damp, lambda_p, f0, kadh, mexp;
+  double k1, lambda_p, f0, kadh, mexp;
   double k2fac, delta_p, minv, lp_minv, ka_dm;
   int mixed_coefficients;   
 };

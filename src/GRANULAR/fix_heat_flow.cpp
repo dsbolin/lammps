@@ -38,6 +38,7 @@ FixHeatFlow::FixHeatFlow(LAMMPS *lmp, int narg, char **arg) :
   cp_style = NONE;
   comm_forward = 1;
   comm_reverse = 1;
+//  first_flag = 1;
 
   int ntypes = atom->ntypes;
   if (strcmp(arg[3],"constant") == 0) {
@@ -89,6 +90,12 @@ void FixHeatFlow::init()
 
 void FixHeatFlow::setup(int /*vflag*/)
 {
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixHeatFlow::setup_pre_force(int /*vflag*/)
+{
   // Identify whether this is the first instance of fix heat/flow
   first_flag = 0;
 
@@ -100,12 +107,7 @@ void FixHeatFlow::setup(int /*vflag*/)
   }
 
   if (i == 0) first_flag = 1;
-}
 
-/* ---------------------------------------------------------------------- */
-
-void FixHeatFlow::setup_pre_force(int /*vflag*/)
-{
   pre_force(0);
 }
 

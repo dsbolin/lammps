@@ -507,7 +507,7 @@ void GranSubModNormalEEPA::coeffs_to_local()
 void GranSubModNormalEEPA::mix_coeffs(double *icoeffs, double *jcoeffs)
 {
   coeffs[0] = mix_stiffnessE(icoeffs[0], jcoeffs[0], icoeffs[2], jcoeffs[2]);
-  for (int i = 1; i <= num_coeffs; i++) {
+  for (int i = 1; i < num_coeffs; i++) {
     coeffs[i] = mix_geom(icoeffs[i], jcoeffs[i]);
   }
 
