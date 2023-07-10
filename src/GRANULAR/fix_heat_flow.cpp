@@ -273,7 +273,11 @@ void FixHeatFlow::final_integrate()
       if (mask[i] & groupbit) {
         for (int j = 0; j < nreaction; j++) {
           if (reaction_style[j] == ATOM_RXN) reaction_value[j] = rxn_array[i][j];        
+<<<<<<< HEAD
           atom->darray[reaction_index][i][j] += dt * reaction_value[j];
+=======
+          reaction_extents[i][j] += dt * reaction_value[j];
+>>>>>>> d21518e47d727d671f29ea5c45f892220c2a37e6
         }
       }
     }

@@ -60,7 +60,6 @@ class FixHeatFlow : public Fix {
   int reaction;
   int nreaction;
   int reaction_atom;
-  int reaction_index;
   int *reaction_var;
   int *reaction_style;
   char **reaction_str;
