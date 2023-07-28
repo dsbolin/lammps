@@ -43,6 +43,7 @@ FixHeatFlow::FixHeatFlow(LAMMPS *lmp, int narg, char **arg) :
   nreaction = 0;
   comm_forward = 1;
   comm_reverse = 1;
+  conduction_flag = 1;
 
   int ntypes = atom->ntypes;
 
@@ -63,6 +64,9 @@ FixHeatFlow::FixHeatFlow(LAMMPS *lmp, int narg, char **arg) :
         if (cp_type[i] < 0.0) error->all(FLERR, "Illegal fix command");
       }
       iarg += ntypes + 1;
+    } else if (strcmp(arg[iarg], "no_conduction") == 0) {
+      conduction_flag = 0;
+      iarg += 1;
     } else if (strcmp(arg[iarg], "source") == 0) {
       source = 1;
       if (iarg + 2 > narg) utils::missing_cmd_args(FLERR, "fix heat/flow source", error);
@@ -95,7 +99,7 @@ FixHeatFlow::FixHeatFlow(LAMMPS *lmp, int narg, char **arg) :
                    "that match number of reactions");
       }     
 
-      reaction_str = new char *[nreaction];
+      reaction_str = new char*[nreaction];
       reaction_style = new int[nreaction];
       reaction_var = new int[nreaction];
       reaction_value = new double[nreaction];
@@ -222,12 +226,14 @@ void FixHeatFlow::final_integrate()
   // add ghost contributions to heatflow if first instance of fix
   if (first_flag) comm->reverse_comm(this);
 
-  if (rmass) {
-    for (int i = 0; i < nlocal; i++)
-      if (mask[i] & groupbit) temperature[i] += dt * heatflow[i] / (calc_cp(i) * rmass[i]);
-  } else {
-    for (int i = 0; i < nlocal; i++)
-      if (mask[i] & groupbit) temperature[i] += dt * heatflow[i] / (calc_cp(i) * mass[type[i]]);
+  if (conduction_flag) {
+    if (rmass) {
+      for (int i = 0; i < nlocal; i++)
+        if (mask[i] & groupbit) temperature[i] += dt * heatflow[i] / (calc_cp(i) * rmass[i]);
+    } else {
+      for (int i = 0; i < nlocal; i++)
+        if (mask[i] & groupbit) temperature[i] += dt * heatflow[i] / (calc_cp(i) * mass[type[i]]);
+    }
   }
 
   if (source) {
@@ -263,7 +269,7 @@ void FixHeatFlow::final_integrate()
       if (reaction_style[j] == ATOM_RXN) {
         input->variable->compute_atom(reaction_var[j], igroup, &rxn_array[0][j], nreaction, 0);
       }
-      else if (reaction_style[j] == EQUAL_RXN){
+      else if (reaction_style[j] == EQUAL_RXN) {
         reaction_value[j] = input->variable->compute_equal(reaction_var[j]);
       }
     }
@@ -273,11 +279,7 @@ void FixHeatFlow::final_integrate()
       if (mask[i] & groupbit) {
         for (int j = 0; j < nreaction; j++) {
           if (reaction_style[j] == ATOM_RXN) reaction_value[j] = rxn_array[i][j];        
-<<<<<<< HEAD
           atom->darray[reaction_index][i][j] += dt * reaction_value[j];
-=======
-          reaction_extents[i][j] += dt * reaction_value[j];
->>>>>>> d21518e47d727d671f29ea5c45f892220c2a37e6
         }
       }
     }

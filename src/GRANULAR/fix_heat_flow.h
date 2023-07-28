@@ -45,6 +45,7 @@ class FixHeatFlow : public Fix {
   double cp, *cp_type;
   int cp_style;
   int first_flag;
+  int conduction_flag;
 
   int maxatom;
 
@@ -60,6 +61,7 @@ class FixHeatFlow : public Fix {
   int reaction;
   int nreaction;
   int reaction_atom;
+  int reaction_index;
   int *reaction_var;
   int *reaction_style;
   char **reaction_str;
