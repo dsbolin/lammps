@@ -781,6 +781,11 @@ double PairGranular::single(int i, int j, int itype, int jtype,
     dq = model->dq;
   }
 
+  double dq = 0;
+  if (heat_flag) {
+    dq = model->dq;
+  }
+
   // set single_extra quantities
   svector[0] = model->fs[0];
   svector[1] = model->fs[1];
