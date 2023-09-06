@@ -766,6 +766,10 @@ double PairGranular::single(int i, int j, int itype, int jtype,
   model->omegaj = omega[j];
   model->history = history;
 
+  if (heat_flag) {
+    model->Ti = atom->temperature[i];
+    model->Tj = atom->temperature[j];
+  }
   model->calculate_forces();
 
   // apply forces & torques
