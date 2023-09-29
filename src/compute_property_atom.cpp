@@ -323,6 +323,18 @@ ComputePropertyAtom::ComputePropertyAtom(LAMMPS *lmp, int narg, char **arg) :
         error->all(FLERR,"Compute property/atom {} requires atom style tri", arg[iarg]);
       pack_choice[i] = &ComputePropertyAtom::pack_corner3z;
 
+
+    // Granular heat transport
+    } else if (strcmp(arg[iarg],"temperature") == 0) {
+      if (!atom->temperature_flag)
+        error->all(FLERR,"Compute property/atom {} requires per-atom temperature", arg[iarg]);
+      pack_choice[i] = &ComputePropertyAtom::pack_temperature;
+    } else if (strcmp(arg[iarg],"heatflow") == 0) {
+      if (!atom->temperature_flag)
+        error->all(FLERR,"Compute property/atom {} requires per-atom heat flow", arg[iarg]);
+      pack_choice[i] = &ComputePropertyAtom::pack_heatflow;
+    
+
     // custom per-atom vector or array
 
     } else if (utils::strmatch(arg[iarg],"^[id]2?_")) {
@@ -1811,6 +1823,36 @@ void ComputePropertyAtom::pack_corner3z(int n)
       MathExtra::matvec(p,bonus[tri[i]].c3,c);
       buf[n] = x[i][2] + c[2];
     } else buf[n] = 0.0;
+    n += nvalues;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void ComputePropertyAtom::pack_temperature(int n)
+{
+  double *temperature = atom->temperature;
+  int *mask = atom->mask;
+  int nlocal = atom->nlocal;
+
+  for (int i = 0; i < nlocal; i++) {
+    if (mask[i] & groupbit) buf[n] = temperature[i];
+    else buf[n] = 0.0;
+    n += nvalues;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void ComputePropertyAtom::pack_heatflow(int n)
+{
+  double *heatflow = atom->heatflow;
+  int *mask = atom->mask;
+  int nlocal = atom->nlocal;
+
+  for (int i = 0; i < nlocal; i++) {
+    if (mask[i] & groupbit) buf[n] = heatflow[i];
+    else buf[n] = 0.0;
     n += nvalues;
   }
 }

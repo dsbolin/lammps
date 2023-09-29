@@ -127,6 +127,9 @@ class ComputePropertyAtom : public Compute {
   void pack_corner3y(int);
   void pack_corner3z(int);
 
+  void pack_temperature(int);
+  void pack_heatflow(int);
+  
   void pack_nbonds(int);
 
   void pack_iname(int);
