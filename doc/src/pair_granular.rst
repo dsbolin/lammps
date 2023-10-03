@@ -53,7 +53,8 @@ The *granular* styles support a variety of options for the normal,
 tangential, rolling and twisting forces resulting from contact between
 two granular particles. This expands on the options offered by the
 :doc:`pair gran/\* <pair_gran>` pair styles. The total computed forces
-and torques are the sum of various models selected for the normal,
+and torques are the sum of various models selected for the 
+:doc:`normal <granular_normal_models>`,
 tangential, rolling and twisting modes of motion.
 
 All model choices and parameters are entered in the
@@ -170,6 +171,12 @@ initially will not experience force until they come into contact
 :math:`\delta \geq 0`; as they move apart and (:math:`\delta < 0`), they
 experience a tensile force up to :math:`3\pi\gamma R`, at which point they
 lose contact.
+1. :ref:`hooke <hooke_normal_model>` : :math:`k_n`, :math:`\eta_{n0}` (or :math:`e`)
+2. :ref:`hertz <hertz_normal_model>` : :math:`k_n`, :math:`\eta_{n0}` (or :math:`e`)
+3. :ref:`hertz/material <hertz_material_normal_model>` : E, :math:`\eta_{n0}` (or :math:`e`), :math:`\nu`
+4. :ref:`dmt <dmt_normal_model>`: E, :math:`\eta_{n0}` (or :math:`e`), :math:`\nu`, :math:`\gamma`
+5. :ref:`jkr <jkr_normal_model>`: E, :math:`\eta_{n0}` (or :math:`e`), :math:`\nu`, :math:`\gamma`
+
 
 .. note::
 
