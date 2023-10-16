@@ -1,7 +1,10 @@
 Models for normal contact in granular interactions
 ==================================================
 
-
+The normal force acts along the vector connecting the center of two particles,
+i.e. normal to the plane of contact between particles.
+In all cases, the normal forces is modeled as a function of overlap :math:`delta`. 
+The following quantities are common to all the normal models currently available:
 
 :math:`\delta_{ij} = R_i + R_j - \|\mathbf{r}_{ij}\|` is the particle overlap, 
 :math:`R_i, R_j` are the particle radii, 
@@ -15,15 +18,12 @@ positive for repulsion), and
 `hooke` model
 ---------------
 
-For the *hooke* model, the normal, elastic component of force acting
+For the *hooke* model, the normal component of force acting
 on particle *i* due to contact with particle *j* is given by:
 
 .. math::
 
    \mathbf{F}_{ne, Hooke} = k_n \delta_{ij} \mathbf{n}
-
-Where 
-
 
 The units of the spring constant :math:`k_n` are
 *force*\ /\ *distance*, or equivalently *mass*\ /*time\^2*.
@@ -31,9 +31,9 @@ The units of the spring constant :math:`k_n` are
 .. _hertz_normal_model:
 
 `hertz` model
------------
+-------------
 
-For the *hertz* model, the normal component of force is given by:
+For the *hertz* model, the normal force is given by:
 
 .. math::
 
@@ -47,7 +47,7 @@ equivalently *pressure*\ .
 `hertz/material` model
 ----------------------
 
-For the *hertz/material* model, the force is given by:
+For the *hertz/material* model, the normal force is given by:
 
 .. math::
 

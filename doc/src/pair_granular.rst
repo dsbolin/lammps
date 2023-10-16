@@ -346,6 +346,10 @@ for the damping model currently supported are:
 4. *tsuji*
 5. *coeff_restitution*
 6. *mdr* (class) : :math:`d_{type}`
+1. :ref: `velocity <velocity_damping_model>`
+2. :ref: `mass_velocity <mass_velocity_damping_model>`
+3. :ref: `viscoelastic <viscoelastic_damping_model>`
+4. :ref: `tsuji <tsuji_damping_model>`
 
 If the *damping* keyword is not specified, the *viscoelastic* model is
 used by default.
@@ -1065,18 +1069,8 @@ For the *pair_coeff* settings: *damping viscoelastic*, *rolling none*,
 References
 """"""""""
 
-.. _Brill1996:
 
-**(Brilliantov et al, 1996)** Brilliantov, N. V., Spahn, F., Hertzsch,
-J. M., & Poschel, T. (1996).  Model for collisions in granular
-gases. Physical review E, 53(5), 5382.
 
-.. _Tsuji1992:
-
-**(Tsuji et al, 1992)** Tsuji, Y., Tanaka, T., & Ishida,
-T. (1992). Lagrangian numerical simulation of plug flow of
-cohesionless particles in a horizontal pipe. Powder technology, 71(3),
-239-250.
 
 .. _JKR1971:
 
