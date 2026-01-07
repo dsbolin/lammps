@@ -440,7 +440,6 @@ void GranSubModNormalJKR::set_fncrit()
   Fncrit = fabs(Fne + 2.0 * F_pulloff);
 }
 
-<<<<<<< HEAD
 /* ----------------------------------------------------------------------
    MDR contact model
 
@@ -1010,9 +1009,6 @@ double GranSubModNormalMDR::round_up_negative_epsilon(double value)
   return value;
 }
 
->>>>>>> c873c1226b (Updates for epa_linear and static granular contact models)
-=======
->>>>>>> 53ab9568c8 (Added EPA nonlinear model)
 /* ----------------------------------------------------------------------
    Elastic-plastic-adhesive, linear
 ------------------------------------------------------------------------- */
@@ -1039,7 +1035,7 @@ void GranSubModNormalEPALinear::coeffs_to_local()
   phi_f = coeffs[4];
   f0 = coeffs[5];
 
-  if (k1 < 0.0 || damp < 0.0 || k2_hat < 0.0 || kc < 0 || phi_f < 0 || f0 < 0) error->all(FLERR, "Illegal EPA linear normal model");
+  if (k1 < 0.0 || damp < 0.0 || k2_hat < 0.0 || kc < 0 || phi_f < 0 || f0 < 0) error->all(FLERR, "Illegal EPA linear normal model, all coeffs must be positive");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1089,10 +1085,10 @@ double GranSubModNormalEPALinear::calculate_forces()
 }
 
 /* ----------------------------------------------------------------------
-   Edinburgh elastic-plastic-adhesive, non-linear
+   Elastic-plastic-adhesive, non-linear
 ------------------------------------------------------------------------- */
 
-GranSubModNormalEEPA::GranSubModNormalEEPA(GranularModel *gm, LAMMPS *lmp) : GranSubModNormal(gm, lmp)
+GranSubModNormalEPANonlinear::GranSubModNormalEPANonlinear(GranularModel *gm, LAMMPS *lmp) : GranSubModNormal(gm, lmp)
 {
   cohesive_flag = 1;
   num_coeffs = 7; //E, poiss, damp, lambda_p, f0, kadh, mexp
@@ -1108,7 +1104,7 @@ GranSubModNormalEEPA::GranSubModNormalEEPA(GranularModel *gm, LAMMPS *lmp) : Gra
 
 /* ---------------------------------------------------------------------- */
 
-void GranSubModNormalEEPA::coeffs_to_local()
+void GranSubModNormalEPANonlinear::coeffs_to_local()
 {
   Emod = coeffs[0];
   damp = coeffs[1];
@@ -1135,7 +1131,7 @@ void GranSubModNormalEEPA::coeffs_to_local()
 
 /* ---------------------------------------------------------------------- */
 
-void GranSubModNormalEEPA::mix_coeffs(double *icoeffs, double *jcoeffs)
+void GranSubModNormalEPANonlinear::mix_coeffs(double *icoeffs, double *jcoeffs)
 {
   coeffs[0] = mix_stiffnessE(icoeffs[0], jcoeffs[0], icoeffs[2], jcoeffs[2]);
   for (int i = 1; i < num_coeffs; i++) {
@@ -1150,14 +1146,14 @@ void GranSubModNormalEEPA::mix_coeffs(double *icoeffs, double *jcoeffs)
 
 /* ---------------------------------------------------------------------- */
 
-void GranSubModNormalEEPA::set_fncrit()
+void GranSubModNormalEPANonlinear::set_fncrit()
 {
   Fncrit = fabs(gm->Fntot + ka_dm + f0);  
 }
 
 /* ---------------------------------------------------------------------- */
 
-double GranSubModNormalEEPA::calculate_contact_radius()
+double GranSubModNormalEPANonlinear::calculate_contact_radius()
 {
   double *history = & gm->history[history_index];
   double delta_max = history[0];
@@ -1175,7 +1171,7 @@ double GranSubModNormalEEPA::calculate_contact_radius()
 
 /* ---------------------------------------------------------------------- */
 
-double GranSubModNormalEEPA::calculate_forces()
+double GranSubModNormalEPANonlinear::calculate_forces()
 {
   double k2, delta_max;
   double dm, dpm, dchi, k2_dmdpm, k1_dm;  
