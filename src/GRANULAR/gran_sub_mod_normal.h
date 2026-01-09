@@ -21,7 +21,7 @@ GranSubModStyle(dmt,GranSubModNormalDMT,NORMAL);
 GranSubModStyle(jkr,GranSubModNormalJKR,NORMAL);
 GranSubModStyle(mdr,GranSubModNormalMDR,NORMAL);
 GranSubModStyle(epa_linear,GranSubModNormalEPALinear,NORMAL);
-GranSubModStyle(epa_nonlinear,GranSubModNormalEEPA,NORMAL);
+GranSubModStyle(epa_nonlinear,GranSubModNormalEPANonlinear,NORMAL);
 
 // clang-format on
 #else
@@ -57,7 +57,6 @@ namespace Granular_NS {
     double Emod, poiss;
     double Fncrit;
     int material_properties, cohesive_flag;
-    double Fncrit;
   };
 
   /* ---------------------------------------------------------------------- */
@@ -185,9 +184,9 @@ namespace Granular_NS {
 
 /* ---------------------------------------------------------------------- */
 
-  class GranSubModNormalEEPA : public GranSubModNormal {
+  class GranSubModNormalEPANonlinear : public GranSubModNormal {
    public:
-    GranSubModNormalEEPA(class GranularModel *, class LAMMPS *);
+    GranSubModNormalEPANonlinear(class GranularModel *, class LAMMPS *);
     void coeffs_to_local() override;
     void mix_coeffs(double *, double *) override;
     double calculate_forces() override;

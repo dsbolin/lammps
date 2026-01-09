@@ -349,6 +349,8 @@ ComputePropertyAtom::ComputePropertyAtom(LAMMPS *lmp, int narg, char **arg) :
       if (!atom->apip_e_precise_flag)
         error->all(FLERR,"Compute property/atom {} is not available", arg[iarg]);
       pack_choice[i] = &ComputePropertyAtom::pack_apip_e_precise;
+      
+       
     // Granular heat transport
 
     } else if (strcmp(arg[iarg],"temperature") == 0) {
@@ -357,7 +359,7 @@ ComputePropertyAtom::ComputePropertyAtom(LAMMPS *lmp, int narg, char **arg) :
       pack_choice[i] = &ComputePropertyAtom::pack_temperature;
     } else if (strcmp(arg[iarg],"heatflow") == 0) {
       if (!atom->temperature_flag)
-        error->all(FLERR,"Compute property/atom {} requires per-atom heat flow", arg[iarg]);
+        error->all(FLERR,"Compute property/atom {} requires per-atom temperature", arg[iarg]);
       pack_choice[i] = &ComputePropertyAtom::pack_heatflow;
 
     // custom per-atom vector or array
